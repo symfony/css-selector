@@ -13,11 +13,20 @@ equivalents:
 Resources
 ---------
 
-This component is a port of the Python lxml library, which is copyright Infrae
+This component is a port of the [Python lxml library](http://lxml.de/cssselect.html), which is copyright Infrae
 and distributed under the BSD license.
 
-Current code is a port of http://codespeak.net/svn/lxml/trunk/src/lxml/cssselect.py@71545
+Current code is a port of https://github.com/lxml/lxml/blob/master/src/lxml/cssselect.py
 
 You can run the unit tests with the following command:
+  
+  phpunit
+  
+Limitations
+---------
 
-    phpunit -c src/Symfony/Component/CssSelector/
+These applicable pseudoclasses are not yet implemented:
+
+* :lang(language)
+* :root
+* *:first-of-type, *:last-of-type, *:nth-of-type, *:nth-last-of-type, *:only-of-type. All of these work when you specify an element type, but not with *
