@@ -14,7 +14,7 @@ namespace Symfony\Component\CssSelector\Tests\Node;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\CssSelector\Node\NodeInterface;
 
-abstract class AbstractNodeTest extends TestCase
+abstract class AbstractNodeTestCase extends TestCase
 {
     /** @dataProvider getToStringConversionTestData */
     public function testToStringConversion(NodeInterface $node, $representation)
