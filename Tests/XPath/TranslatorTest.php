@@ -236,6 +236,11 @@ class TranslatorTest extends TestCase
             [':scope', '*[1]'],
             ['e:is(section, article) h1', "e[(name() = 'section') or (name() = 'article')]/descendant-or-self::*/h1"],
             ['e:where(section, article) h1', "e[(name() = 'section') or (name() = 'article')]/descendant-or-self::*/h1"],
+            ['div:has(> .foo)', "div[./*[@class and contains(concat(' ', normalize-space(@class), ' '), ' foo ')]]"],
+            ['div:has(~ .foo)', "div[following-sibling::*[@class and contains(concat(' ', normalize-space(@class), ' '), ' foo ')]]"],
+            ['div:has(+ .foo)', "div[following-sibling::*[(@class and contains(concat(' ', normalize-space(@class), ' '), ' foo ')) and (position() = 1)]]"],
+            ['div:has(.foo)', "div[descendant-or-self::*[@class and contains(concat(' ', normalize-space(@class), ' '), ' foo ')]]"],
+            ['div:has(#bar)', "div[descendant-or-self::*[@id = 'bar']]"],
         ];
     }
 
