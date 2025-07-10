@@ -49,6 +49,6 @@ class NegationNode extends AbstractNode
 
     public function __toString(): string
     {
-        return sprintf('%s[%s:not(%s)]', $this->getNodeName(), $this->selector, $this->subSelector);
+        return \sprintf('%s[%s:not(%s)]', $this->getNodeName(), $this->selector, $this->subSelector);
     }
 }
