@@ -157,18 +157,18 @@ class TranslatorTest extends TestCase
         $translator->registerExtension(new HtmlExtension($translator));
         $document = new \DOMDocument();
         $document->loadHTML(<<<'HTML'
-<html>
-  <body>
-    <p>
-      <span>A</span>
-    </p>
-    <p>
-      <span>B</span>
-      <span>C</span>
-    </p>
-  </body>
-</html>
-HTML
+            <html>
+              <body>
+                <p>
+                  <span>A</span>
+                </p>
+                <p>
+                  <span>B</span>
+                  <span>C</span>
+                </p>
+              </body>
+            </html>
+            HTML
         );
 
         $xpath = new \DOMXPath($document);
