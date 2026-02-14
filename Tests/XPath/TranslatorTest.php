@@ -14,6 +14,7 @@ namespace Symfony\Component\CssSelector\Tests\XPath;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\CssSelector\Exception\ExpressionErrorException;
+use Symfony\Component\CssSelector\Exception\SyntaxErrorException;
 use Symfony\Component\CssSelector\Node\ElementNode;
 use Symfony\Component\CssSelector\Node\FunctionNode;
 use Symfony\Component\CssSelector\Parser\Parser;
@@ -35,6 +36,26 @@ class TranslatorTest extends TestCase
         $translator = new Translator();
         $translator->registerExtension(new HtmlExtension($translator));
         $this->assertEquals($xpath, $translator->cssToXPath($css, ''));
+    }
+
+    #[DataProvider('getUnsupportedHasSelectorTestData')]
+    public function testHasUnsupportedSelector(string $css)
+    {
+        $translator = new Translator();
+        $translator->registerExtension(new HtmlExtension($translator));
+
+        $this->expectException(SyntaxErrorException::class);
+
+        $translator->cssToXPath($css, '');
+    }
+
+    public static function getUnsupportedHasSelectorTestData(): iterable
+    {
+        yield 'attribute selector' => ['div:has([data-x])'];
+        yield 'descendant combinator' => ['div:has(.foo .bar)'];
+        yield 'selector list' => ['div:has(.foo, .bar)'];
+        yield 'nested pseudo-class' => ['div:has(:not(.foo))'];
+        yield 'chained combinator' => ['div:has(> .foo > .bar)'];
     }
 
     public function testCssToXPathPseudoElement()
