@@ -51,11 +51,7 @@ class TranslatorTest extends TestCase
 
     public static function getUnsupportedHasSelectorTestData(): iterable
     {
-        yield 'attribute selector' => ['div:has([data-x])'];
-        yield 'descendant combinator' => ['div:has(.foo .bar)'];
-        yield 'selector list' => ['div:has(.foo, .bar)'];
-        yield 'nested pseudo-class' => ['div:has(:not(.foo))'];
-        yield 'chained combinator' => ['div:has(> .foo > .bar)'];
+        yield 'pseudo-element inside :has()' => ['div:has(::before)'];
     }
 
     public function testCssToXPathPseudoElement()
@@ -266,6 +262,13 @@ class TranslatorTest extends TestCase
             ['div:has(+ .foo)', "div[following-sibling::*[(@class and contains(concat(' ', normalize-space(@class), ' '), ' foo ')) and (position() = 1)]]"],
             ['div:has(.foo)', "div[descendant-or-self::*[@class and contains(concat(' ', normalize-space(@class), ' '), ' foo ')]]"],
             ['div:has(#bar)', "div[descendant-or-self::*[@id = 'bar']]"],
+            ['div:has([data-x])', 'div[descendant-or-self::*[@data-x]]'],
+            ['div:has(.foo .bar)', "div[descendant-or-self::*[@class and contains(concat(' ', normalize-space(@class), ' '), ' foo ')]/descendant-or-self::*/*[@class and contains(concat(' ', normalize-space(@class), ' '), ' bar ')]]"],
+            ['div:has(:not(.foo))', "div[descendant-or-self::*[not(@class and contains(concat(' ', normalize-space(@class), ' '), ' foo '))]]"],
+            ['div:has(> .foo > .bar)', "div[./*[@class and contains(concat(' ', normalize-space(@class), ' '), ' foo ')]/*[@class and contains(concat(' ', normalize-space(@class), ' '), ' bar ')]]"],
+            ['div:has(.foo, .bar)', "div[(descendant-or-self::*[@class and contains(concat(' ', normalize-space(@class), ' '), ' foo ')]) or (descendant-or-self::*[@class and contains(concat(' ', normalize-space(@class), ' '), ' bar ')])]"],
+            ['div:has(> .foo, + .bar)', "div[(./*[@class and contains(concat(' ', normalize-space(@class), ' '), ' foo ')]) or (following-sibling::*[(@class and contains(concat(' ', normalize-space(@class), ' '), ' bar ')) and (position() = 1)])]"],
+            ['div:has(:scope > a)', 'div[descendant-or-self::*[1]/a]'],
         ];
     }
 
@@ -411,6 +414,8 @@ class TranslatorTest extends TestCase
             ['a:where(:not(#name-anchor))', ['tag-anchor', 'nofollow-anchor']],
             ['a:not(:where(#name-anchor))', ['tag-anchor', 'nofollow-anchor']],
             ['a:where(:is(#name-anchor), :where(#tag-anchor))', ['name-anchor', 'tag-anchor']],
+            ['li:has(div, [foobar])', ['second-li']],
+            ['ol:has(> li[lang], > .nonexistent)', ['first-ol']],
             // HTML-specific
             [':link', ['link-href', 'tag-anchor', 'nofollow-anchor', 'area-href']],
             [':visited', []],

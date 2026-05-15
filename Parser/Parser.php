@@ -28,7 +28,10 @@ use Symfony\Component\CssSelector\Parser\Tokenizer\Tokenizer;
  */
 class Parser implements ParserInterface
 {
+    private const HAS_NESTING_LIMIT = 16;
+
     private Tokenizer $tokenizer;
+    private int $hasNestingDepth = 0;
 
     public function __construct(?Tokenizer $tokenizer = null)
     {
@@ -111,9 +114,9 @@ class Parser implements ParserInterface
         return $selectors;
     }
 
-    private function parserSelectorNode(TokenStream $stream, bool $isArgument = false): Node\SelectorNode
+    private function parserSelectorNode(TokenStream $stream, bool $isArgument = false, bool $insideRelativeSelector = false): Node\SelectorNode
     {
-        [$result, $pseudoElement] = $this->parseSimpleSelector($stream, false, $isArgument);
+        [$result, $pseudoElement] = $this->parseSimpleSelector($stream, false, $isArgument, $insideRelativeSelector);
 
         while (true) {
             $stream->skipWhitespace();
@@ -138,7 +141,7 @@ class Parser implements ParserInterface
                 $combinator = ' ';
             }
 
-            [$nextSelector, $pseudoElement] = $this->parseSimpleSelector($stream, false, $isArgument);
+            [$nextSelector, $pseudoElement] = $this->parseSimpleSelector($stream, false, $isArgument, $insideRelativeSelector);
             $result = new Node\CombinedSelectorNode($result, $combinator, $nextSelector);
         }
 
@@ -146,37 +149,61 @@ class Parser implements ParserInterface
     }
 
     /**
+     * @return list<array{0: string, 1: Node\SelectorNode}>
+     *
      * @throws SyntaxErrorException
      * @throws InternalErrorException
      */
     private function parseRelativeSelector(TokenStream $stream): array
     {
-        $stream->skipWhitespace();
-        $subSelector = '';
-        $next = $stream->getNext();
-
-        if ($next->isDelimiter(['+', '>', '~'])) {
-            $combinator = $next->getValue();
-            $stream->skipWhitespace();
-            $next = $stream->getNext();
-        } else {
-            $combinator = ' ';
+        if ($this->hasNestingDepth >= self::HAS_NESTING_LIMIT) {
+            throw SyntaxErrorException::nestedHas();
         }
 
-        while (true) {
-            if ($next->isString() || $next->isIdentifier() || $next->isNumber() || $next->isDelimiter(['.', '*'])) {
-                $subSelector .= $next->getValue();
-            } elseif ($next->isHash()) {
-                $subSelector .= '#'.$next->getValue();
-            } elseif ($next->isDelimiter([')'])) {
-                $result = $this->parse($subSelector);
+        ++$this->hasNestingDepth;
 
-                return [$combinator, $result[0]];
-            } else {
-                throw SyntaxErrorException::unexpectedToken('an argument', $next);
+        try {
+            $arguments = [];
+            while (true) {
+                $stream->skipWhitespace();
+                $peek = $stream->getPeek();
+
+                if ($peek->isDelimiter(['+', '>', '~'])) {
+                    $combinator = $stream->getNext()->getValue();
+                    $stream->skipWhitespace();
+                    $peek = $stream->getPeek();
+                } else {
+                    $combinator = ' ';
+                }
+
+                if ($peek->isString() || $peek->isNumber()) {
+                    throw SyntaxErrorException::unexpectedToken('an argument', $stream->getNext());
+                }
+
+                $selector = $this->parserSelectorNode($stream, true, true);
+
+                if (null !== $pseudoElement = $selector->getPseudoElement()) {
+                    throw SyntaxErrorException::pseudoElementFound($pseudoElement, 'inside :has()');
+                }
+
+                $arguments[] = [$combinator, $selector];
+
+                if ($stream->getPeek()->isDelimiter([','])) {
+                    $stream->getNext();
+                    continue;
+                }
+
+                break;
             }
 
             $next = $stream->getNext();
+            if (!$next->isDelimiter([')'])) {
+                throw SyntaxErrorException::unexpectedToken('")"', $next);
+            }
+
+            return $arguments;
+        } finally {
+            --$this->hasNestingDepth;
         }
     }
 
@@ -186,7 +213,7 @@ class Parser implements ParserInterface
      * @throws SyntaxErrorException
      * @throws InternalErrorException
      */
-    private function parseSimpleSelector(TokenStream $stream, bool $insideNegation = false, bool $isArgument = false): array
+    private function parseSimpleSelector(TokenStream $stream, bool $insideNegation = false, bool $isArgument = false, bool $insideRelativeSelector = false): array
     {
         $stream->skipWhitespace();
 
@@ -239,12 +266,16 @@ class Parser implements ParserInterface
                     $result = new Node\PseudoNode($result, $identifier);
                     if ('Pseudo[Element[*]:scope]' === $result->__toString()) {
                         $used = \count($stream->getUsed());
+                        $prevSeparators = [','];
+                        if ($insideRelativeSelector) {
+                            $prevSeparators = [',', '(', '>', '+', '~'];
+                        }
                         if (!(2 === $used
                            || 3 === $used && $stream->getUsed()[0]->isWhiteSpace()
-                           || $used >= 3 && $stream->getUsed()[$used - 3]->isDelimiter([','])
+                           || $used >= 3 && $stream->getUsed()[$used - 3]->isDelimiter($prevSeparators)
                            || $used >= 4
                                 && $stream->getUsed()[$used - 3]->isWhiteSpace()
-                                && $stream->getUsed()[$used - 4]->isDelimiter([','])
+                                && $stream->getUsed()[$used - 4]->isDelimiter($prevSeparators)
                         )) {
                             throw SyntaxErrorException::notAtTheStartOfASelector('scope');
                         }
@@ -264,7 +295,7 @@ class Parser implements ParserInterface
                     $next = $stream->getNext();
 
                     if (null !== $argumentPseudoElement) {
-                        throw SyntaxErrorException::pseudoElementFound($argumentPseudoElement, 'inside ::not()');
+                        throw SyntaxErrorException::pseudoElementFound($argumentPseudoElement, 'inside :not()');
                     }
 
                     if (!$next->isDelimiter([')'])) {
@@ -291,8 +322,7 @@ class Parser implements ParserInterface
 
                     $result = new Node\SpecificityAdjustmentNode($result, $selectors);
                 } elseif ('has' === strtolower($identifier)) {
-                    [$combinator, $arguments] = $this->parseRelativeSelector($stream);
-                    $result = new Node\RelationNode($result, $combinator, $arguments);
+                    $result = new Node\RelationNode($result, $this->parseRelativeSelector($stream));
                 } else {
                     $arguments = [];
                     $next = null;

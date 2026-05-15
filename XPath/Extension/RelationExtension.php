@@ -47,6 +47,7 @@ class RelationExtension extends AbstractExtension
 
     public function translateRelationDirectAdjacent(XPathExpr $xpath, XPathExpr $combinedXpath): XPathExpr
     {
+        // position() = 1 must apply to the sibling, not the outer element, so it goes on $combinedXpath before the join
         $combinedXpath
             ->addNameTest()
             ->addCondition('position() = 1');

@@ -40,7 +40,12 @@ class SyntaxErrorException extends ParseException
 
     public static function nestedNot(): self
     {
-        return new self('Got nested ::not().');
+        return new self('Got nested :not().');
+    }
+
+    public static function nestedHas(): self
+    {
+        return new self('Got too deeply nested :has().');
     }
 
     public static function notAtTheStartOfASelector(string $pseudoElement): self

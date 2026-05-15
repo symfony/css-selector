@@ -23,10 +23,12 @@ namespace Symfony\Component\CssSelector\Node;
  */
 class RelationNode extends AbstractNode
 {
+    /**
+     * @param list<array{0: string, 1: NodeInterface}> $arguments
+     */
     public function __construct(
         private NodeInterface $selector,
-        private string $combinator,
-        private NodeInterface $subSelector,
+        private array $arguments,
     ) {
     }
 
@@ -35,23 +37,32 @@ class RelationNode extends AbstractNode
         return $this->selector;
     }
 
-    public function getCombinator(): string
+    /**
+     * @return list<array{0: string, 1: NodeInterface}>
+     */
+    public function getArguments(): array
     {
-        return $this->combinator;
-    }
-
-    public function getSubSelector(): NodeInterface
-    {
-        return $this->subSelector;
+        return $this->arguments;
     }
 
     public function getSpecificity(): Specificity
     {
-        return $this->selector->getSpecificity()->plus($this->subSelector->getSpecificity());
+        $argumentsSpecificity = array_reduce(
+            $this->arguments,
+            static fn (Specificity $c, array $a) => 1 === $a[1]->getSpecificity()->compareTo($c) ? $a[1]->getSpecificity() : $c,
+            new Specificity(0, 0, 0),
+        );
+
+        return $this->selector->getSpecificity()->plus($argumentsSpecificity);
     }
 
     public function __toString(): string
     {
-        return \sprintf('%s[%s:has(%s)]', $this->getNodeName(), $this->selector, $this->subSelector);
+        $parts = array_map(
+            static fn (array $a): string => (' ' === $a[0] ? '' : $a[0].' ').$a[1],
+            $this->arguments,
+        );
+
+        return \sprintf('%s[%s:has(%s)]', $this->getNodeName(), $this->selector, implode(', ', $parts));
     }
 }

@@ -80,6 +80,10 @@ class XPathExpr
     /**
      * Joins another XPathExpr with a combiner.
      *
+     * When $hasInnerConditions is true, $expr->condition is folded into $expr->element as a
+     * "[...]" predicate rather than onto $this->condition, so subsequent addCondition() calls
+     * on $this are not AND'd with it. Needed for relative selectors inside :has().
+     *
      * @return $this
      */
     public function join(string $combiner, self $expr, ?string $closingCombiner = null, bool $hasInnerConditions = false): static
